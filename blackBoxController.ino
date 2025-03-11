@@ -808,9 +808,6 @@ void checkArduinoTimeout(){
 
 void outputCollectionBuffer(uint32_t timeOccurred){
   /*Store the buffer and reset it*/
-  Serial.write("Event time passed: ");
-  Serial.print(timeOccurred);
-  Serial.write('\n');
   //If ther file system is working and a file has been given to save in
   if (filesWorking && collecting && strcmp(fileLocation, "") != 0){
     //If the file does not exist
