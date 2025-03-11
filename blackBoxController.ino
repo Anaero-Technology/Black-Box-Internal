@@ -1457,10 +1457,9 @@ void saveHourTips(){
     hourlyFile.print(tipCounts[i]);
     if(i != 14){
       hourlyFile.print(' ');
-    }else{
-      hourlyFile.print('\n');
     }
   }
+  hourlyFile.print('\n');
   hourlyFile.close();
 }
 
