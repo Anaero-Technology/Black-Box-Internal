@@ -13,8 +13,8 @@
 #include <RTClib.h>
 
 //For S2 only
-//#define arduinoRX 18
-//#define arduinoTX 17
+#define arduinoRX 18
+#define arduinoTX 17
 
 //If the data from the arduino should be recorded
 bool collecting = false;
@@ -81,9 +81,9 @@ void setup()
 {
   //Initialize serial connections
   Serial.begin(115200);
-  Serial2.begin(57600);
+  //Serial2.begin(57600);
   //For S2 only
-  //Serial1.begin(57600, SERIAL_8N1, arduinoRX, arduinoTX);
+  Serial1.begin(57600, SERIAL_8N1, arduinoRX, arduinoTX);
 
   //Start the file management
   bool startedSD = SD.begin();
@@ -478,9 +478,9 @@ bool fileNameSet(char fileName[33]){
 void readArduinoInput(){
   /*Read characters from the arduino and store them in a buffer*/
   //Repeat until there are no more characters - prioritises the arduino (may need to change to if)
-  while (Serial2.available()){
+  while (Serial1.available()){
     //Read the character
-    char c = Serial2.read();
+    char c = Serial1.read();
     //Serial.write(c);
     //If currently running an experiment
     if (collecting){
@@ -586,7 +586,7 @@ void arduinoMessageReceived(){
     //If the message just received was a ping and the clear has not yet been sent
     if (!sentClear && strcmp(currentMessage[1], "PING") == 0){
       //Send the clear message
-      Serial2.write("SD_CLEAR\n");
+      Serial1.write("SD_CLEAR\n");
       sentClear = true;
       Serial.write("Sent clear request\n");
     }
@@ -598,7 +598,7 @@ void arduinoMessageReceived(){
     //If the message indicates that the arduino is ready to reset
     if (strcmp(currentMessage[0], "READY") == 0){
       //Send the confirmation message
-      Serial2.write("CONFIRM\n");
+      Serial1.write("CONFIRM\n");
       Serial.write("Sent clear confirmation\n");
     }
 
@@ -611,7 +611,7 @@ void arduinoMessageReceived(){
       collecting = true;
       hourStarted = millis();
       Serial.write("done start\n");
-      Serial2.write("LOGGING_ON\n");
+      Serial1.write("LOGGING_ON\n");
     }
   }
   
@@ -675,9 +675,9 @@ void arduinoMessageReceived(){
             //Store the end point
             arduinoLastEventNumber = arduinoEventNumber;
             //Request data dump from previous tip (give last one recieved)
-            Serial2.write("DUMP_DATA_FROM ");
-            Serial2.print(eventNumber);
-            Serial2.write("\n");
+            Serial1.write("DUMP_DATA_FROM ");
+            Serial1.print(eventNumber);
+            Serial1.write("\n");
             Serial.write("Re-Requesting tips from ");
             Serial.print(eventNumber);
             Serial.write("\n");
@@ -780,7 +780,7 @@ void arduinoMessageReceived(){
     //If this message is a ping
     if (strcmp(currentMessage[1], "PING") == 0){
       //Resume the information from the arduino
-      Serial2.write("RESUME_DATA\n");
+      Serial1.write("RESUME_DATA\n");
       awaitingResume = false;
     }
   }
@@ -1044,9 +1044,9 @@ void downloadFile(){
           }
 
           //While there is data to read from the arduino (can safely be ignored)
-          while (Serial2.available()){
+          while (Serial1.available()){
             //Read the characters until the buffer is empty
-            Serial2.read();
+            Serial1.read();
           }
 
           //While there are characters to read from python
@@ -1278,7 +1278,7 @@ void handleCommandInput(char msgParts[3][33]){
         fileLocation[0] = '\0';
         //Send signal to indicate that the stop was perfomed successfully
         Serial.write("done stop\n");
-        Serial2.write("LOGGING_OFF\n");
+        Serial1.write("LOGGING_OFF\n");
       }else{
         //Message to inicate that it did not stop due to a file system issue
         Serial.write("failed stop nofiles\n");
@@ -1334,7 +1334,7 @@ void handleCommandInput(char msgParts[3][33]){
     if (collecting){
       //Perform a pause first
       awaitingDownload = true;
-      Serial2.write("PAUSE_DATA\n");
+      Serial1.write("PAUSE_DATA\n");
     }else{
       //Start the file download
       downloadFile();
@@ -1436,7 +1436,7 @@ void handleCommandInput(char msgParts[3][33]){
       if (collecting){
         //Perform a pause first
         awaitingHourly = true;
-        Serial2.write("PAUSE_DATA\n");
+        Serial1.write("PAUSE_DATA\n");
       }else{
         //Start the file download
         sendHourTips();
