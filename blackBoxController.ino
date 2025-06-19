@@ -11,6 +11,7 @@
 #include <FS.h>
 #include <SD.h>
 #include <RTClib.h>
+#include "esp_mac.h"
 
 //For S2 only
 //#define arduinoRX 18
@@ -76,6 +77,9 @@ const uint32_t hourLength = 60ul * 60ul * 1000ul;
 const uint32_t ULONGMAX = 0UL - 1UL;
 uint32_t hourStarted = 0ul;
 const char hourlyTipFile[16] = "/hourlyTips.txt";
+
+//Unique hardware address from lan
+char macAddress[20] = {};
 
 void setup() 
 {
@@ -196,7 +200,19 @@ void setup()
       }
     }
   }
+
+  getMacAddress();
   
+}
+
+void getMacAddress() {
+  unsigned char mac[6] = {};
+  esp_efuse_mac_get_default(mac);
+  if (esp_read_mac(mac, ESP_MAC_ETH) == ESP_OK) {
+    sprintf(macAddress, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+  } else {
+    sprintf(macAddress, "--:--:--:--:--:--");
+  }
 }
 
 bool configureSetup(bool col){
@@ -1222,6 +1238,8 @@ void handleCommandInput(char msgParts[3][33]){
        Serial.write("info 0 none ");
      }
      Serial.write(myName);
+     Serial.write(" black-box ");
+     Serial.write(macAddress);
      Serial.write("\n");
      //Send the information regarding the memory usage
      //getMemoryData();
