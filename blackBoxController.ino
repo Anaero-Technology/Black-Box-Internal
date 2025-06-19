@@ -584,7 +584,7 @@ void splitToCurrentMessage(){
 void arduinoMessageReceived(){
   /*When a complete message has been recieved handle it correctly*/
   //Debug output via serial - so that it can be logged
-  if (strcmp(currentMessage[1], "PING") != 0){
+  /*if (strcmp(currentMessage[1], "PING") != 0){
     for (int part = 0; part < partMax; part = part + 1){
       //If the part is not blank
       if (currentMessage[part] != ""){
@@ -594,7 +594,7 @@ void arduinoMessageReceived(){
       }
     }
     Serial.write("\n");
-  }
+  }*/
 
   //If needing to reset - for the start sequence
   if (resettingArduino){
@@ -997,6 +997,9 @@ void outputCollectionBuffer(uint32_t timeOccurred){
     appendFile.print("\n");
     //Close the file to update the data
     appendFile.close();
+    Serial.write("tip ");
+    Serial.write(writeBuffer);
+    Serial.write("\n");
     writeBuffer[0] = '\0';
     writeBufferIndex = 0;
     eventNumber = eventNumber + 1;
