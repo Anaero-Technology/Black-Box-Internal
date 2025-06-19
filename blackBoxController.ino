@@ -54,7 +54,8 @@ bool awaitingDownload = false;
 bool awaitingHourly = false;
 int downloadTimeout = 5;
 bool awaitingResume = false;
-char fileToDownload[33];  
+char fileToDownload[33];
+unsigned long downloadStartPoint = 0UL;
 
 uint32_t arduinoPauseTime = 0;
 uint32_t espPauseTime = 0;
@@ -1020,6 +1021,10 @@ void downloadFile(){
     char lastChar;
     //Open the file to send
     File fileToSend = SD.open(fileToDownload, FILE_READ);
+    //If it is within the file - seek that end point
+    if (downloadStartPoint > 0 && downloadStartPoint < fileToSend.size()) {
+      fileToSend.seek(downloadStartPoint);
+    }
     //Get the number of characters in the file
     int charNumber = fileToSend.available();
     char charNumberBuffer[33];
@@ -1248,7 +1253,7 @@ void handleCommandInput(char msgParts[3][33]){
      //getMemoryData();
   }
   //If this is the command to start recieving data
-  if (strcmp(msgParts[0], "start") == 0){
+  else if (strcmp(msgParts[0], "start") == 0){
     //If not currently running the experiment
     if (!collecting){
       //handle file name - check character length and validity (28 characters max) and that it doesn't exist yet
@@ -1289,7 +1294,7 @@ void handleCommandInput(char msgParts[3][33]){
   }
 
   //If this is the command to stop receiving data
-  if (strcmp(msgParts[0], "stop") == 0){
+  else if (strcmp(msgParts[0], "stop") == 0){
     if (collecting){
       bool stopped = configureSetup(false);
       if (stopped){
@@ -1313,13 +1318,13 @@ void handleCommandInput(char msgParts[3][33]){
   }
 
   //If this is the command to send the file list
-  if (strcmp(msgParts[0], "files") == 0){
+  else if (strcmp(msgParts[0], "files") == 0){
     //Send back the list of files
     listFiles();
   }
 
   //If this is the command to delete a file
-  if (strcmp(msgParts[0], "delete") == 0){
+  else if (strcmp(msgParts[0], "delete") == 0){
     //If not currently running
     if (!collecting){
       //If there is a file with the given name
@@ -1339,7 +1344,7 @@ void handleCommandInput(char msgParts[3][33]){
   }
 
   //If the message requests a file download
-  if (strcmp(msgParts[0], "download") == 0){
+  else if (strcmp(msgParts[0], "download") == 0){
     bool done = false;
     //Iterate through characters in the file name
     for (int ch = 0; ch < 33 && !done; ch = ch + 1){
@@ -1350,6 +1355,8 @@ void handleCommandInput(char msgParts[3][33]){
         done = true;
       }
     }
+
+    downloadStartPoint = 0UL;
 
     //If currently receiving data
     if (collecting){
@@ -1363,13 +1370,39 @@ void handleCommandInput(char msgParts[3][33]){
     
   }
 
+  else if (strcmp(msgParts[0], "downloadFrom") == 0){
+     bool done = false;
+    //Iterate through characters in the file name
+    for (int ch = 0; ch < 33 && !done; ch = ch + 1){
+      //Add the character to the name of the file to be downloaded
+      fileToDownload[ch] = msgParts[1][ch];
+      //Once the end of the name has been reached
+      if (msgParts[1][ch] == '\0'){
+        done = true;
+      }
+    }
+
+    //Attempt to convert start position - 0 if failed
+    downloadStartPoint = strtoul(msgParts[2], NULL, 10);
+
+    //If currently receiving data
+    if (collecting){
+      //Perform a pause first
+      awaitingDownload = true;
+      Serial2.write("PAUSE_DATA\n");
+    }else{
+      //Start the file download
+      downloadFile();
+    }
+  }
+
   //If this is a request to get the RTC time
-  if (strcmp(msgParts[0], "getTime") == 0){
+  else if (strcmp(msgParts[0], "getTime") == 0){
     getTimeStamp();
   }
 
   //If this is a request to set the RTC Ttime
-  if (strcmp(msgParts[0], "setTime") == 0){
+  else if (strcmp(msgParts[0], "setTime") == 0){
     //If not currently running an experiment
     if (!collecting){
       //Buffer to store the values
@@ -1433,7 +1466,7 @@ void handleCommandInput(char msgParts[3][33]){
     }
   }
 
-  if (strcmp(msgParts[0], "setName") == 0){
+  else if (strcmp(msgParts[0], "setName") == 0){
     bool done = false;
     int index = 0;
     int nameIndex = 0;
@@ -1451,7 +1484,7 @@ void handleCommandInput(char msgParts[3][33]){
     setName();
   }
 
-  if (strcmp(msgParts[0], "getHourly") == 0){
+  else if (strcmp(msgParts[0], "getHourly") == 0){
     if(filesWorking){
       //If currently receiving data
       if (collecting){
