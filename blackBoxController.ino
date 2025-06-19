@@ -1482,6 +1482,7 @@ void handleCommandInput(char msgParts[3][33]){
     }
     myName[nameIndex] = '\0';
     setName();
+    Serial.write("done setName\n");
   }
 
   else if (strcmp(msgParts[0], "getHourly") == 0){
