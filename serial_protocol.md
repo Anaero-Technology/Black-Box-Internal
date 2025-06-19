@@ -84,7 +84,7 @@ done files\n
 Used to download a file from the sd card
 Send:
 ```
-download [file_name]\n
+download [file_name] [bytes_to_download]\n
 ```
 ##### Repsonse sequence
 Device begins
