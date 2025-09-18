@@ -18,6 +18,7 @@ Send:
 ```
 start [file_name]\n
 ``` 
+File_name should lead with / and end with .txt
 Receive:
 Successfully started
 ```
