@@ -115,10 +115,10 @@ failed download nofile\n
 ```
 
 #### Downlaod From
-Used to download a file from the sd card from a certain byte onwards
+Used to download a file from the sd card from a certain event number onwards
 Send:
 ```
-downloadFrom [file_name] [byte_from]\n
+downloadFrom [file_name] [event_number]\n
 ```
 Response and sequence is identical to [download](#download)
 

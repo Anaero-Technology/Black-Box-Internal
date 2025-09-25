@@ -492,6 +492,62 @@ bool fileNameSet(char fileName[33]){
   }
 }
 
+void resetTipMemoryFile() {
+  File eventMemory = SD.open("eventMemory.txt", FILE_WRITE);
+  eventMemory.close();
+}
+
+void writeTipMemory(unsigned long location) {
+  char locationBuffer[11];
+  ultoa(location, locationBuffer, 10);
+  int sizeLength = strlen(locationBuffer);
+  File eventMemory = SD.open("eventMemory.txt", FILE_APPEND);
+  for (int i = 0; i < 10 - sizeLength; i = i + 1){
+    eventMemory.print("0"); 
+  }
+  eventMemory.println(locationBuffer);
+  eventMemory.close();
+}
+
+unsigned long getTipMemoryLocation(unsigned long eventNumber) {
+  unsigned long location = 0UL;
+  unsigned long filePos = (eventNumber - 1) * 12;                                    // estimate how many bytes into file fromNo is
+  File eventMemory = SD.open("eventMemory.txt", FILE_READ);
+  bool failed = false;
+  if (eventMemory.size() > filePos + 10){
+    eventMemory.seek(filePos);
+    char posChars[11];
+    for (int i = 0; i < 10; i = i + 1){
+      if (eventMemory.available()){
+        posChars[i] = eventMemory.read();
+      }else{
+        failed = true;
+      }
+    }
+    posChars[10] = '\0';
+
+    if (!failed){
+      unsigned long placeValue = 1;
+      for (int i = 9; i > -1; i = i - 1){
+        int value = posChars[i] - '0';
+        if (value > -1 && value < 10){
+          location = location + (value * placeValue);
+          placeValue = placeValue * 10;
+        }else{
+          failed = true;
+        }
+      }
+    }
+
+    if (failed){
+      location = 0;
+    }
+  }
+
+  eventMemory.close();
+  return location;
+}
+
 void readArduinoInput(){
   /*Read characters from the arduino and store them in a buffer*/
   //Repeat until there are no more characters - prioritises the arduino (may need to change to if)
@@ -993,6 +1049,8 @@ void outputCollectionBuffer(uint32_t timeOccurred){
     
     //Open the file for append
     File appendFile = SD.open(fileLocation, FILE_APPEND);
+    writeTipMemory(appendFile.size());
+
     //Add the contents of the buffer (with a new line at the end)
     appendFile.print(writeBuffer);
     appendFile.print("\n");
@@ -1383,7 +1441,8 @@ void handleCommandInput(char msgParts[3][33]){
     }
 
     //Attempt to convert start position - 0 if failed
-    downloadStartPoint = strtoul(msgParts[2], NULL, 10);
+    unsigned long lineLocation = strtoul(msgParts[2], NULL, 10);
+    downloadStartPoint = getTipMemoryLocation(lineLocation);
 
     //If currently receiving data
     if (collecting){
