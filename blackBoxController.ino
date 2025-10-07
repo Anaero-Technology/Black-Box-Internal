@@ -81,7 +81,7 @@ void setup()
 {
   //Initialize serial connections
   Serial.begin(115200);
-  Serial2.begin(57600);
+  Serial2.begin(57600, SERIAL_8N1, 16, 17);
   //For S2 only
   //Serial1.begin(57600, SERIAL_8N1, arduinoRX, arduinoTX);
 
