@@ -78,6 +78,7 @@ const uint32_t hourLength = 60ul * 60ul * 1000ul;
 const uint32_t ULONGMAX = 0UL - 1UL;
 uint32_t hourStarted = 0ul;
 const char hourlyTipFile[16] = "/hourlyTips.txt";
+const char eventMemoryFile[17] = "/eventMemory.txt";
 
 //Unique hardware address from lan
 char macAddress[20] = {};
@@ -493,7 +494,7 @@ bool fileNameSet(char fileName[33]){
 }
 
 void resetTipMemoryFile() {
-  File eventMemory = SD.open("eventMemory.txt", FILE_WRITE);
+  File eventMemory = SD.open(eventMemoryFile, FILE_WRITE);
   eventMemory.close();
 }
 
@@ -501,18 +502,22 @@ void writeTipMemory(unsigned long location) {
   char locationBuffer[11];
   ultoa(location, locationBuffer, 10);
   int sizeLength = strlen(locationBuffer);
-  File eventMemory = SD.open("eventMemory.txt", FILE_APPEND);
+  if (!SD.exists(eventMemoryFile)) {
+    resetTipMemoryFile();
+  }
+  File eventMemory = SD.open(eventMemoryFile, FILE_APPEND);
   for (int i = 0; i < 10 - sizeLength; i = i + 1){
     eventMemory.print("0"); 
   }
-  eventMemory.println(locationBuffer);
+  eventMemory.print(locationBuffer);
+  eventMemory.print('\n');
   eventMemory.close();
 }
 
 unsigned long getTipMemoryLocation(unsigned long eventNumber) {
   unsigned long location = 0UL;
-  unsigned long filePos = (eventNumber - 1) * 12;                                    // estimate how many bytes into file fromNo is
-  File eventMemory = SD.open("eventMemory.txt", FILE_READ);
+  unsigned long filePos = (eventNumber - 1) * 11;                                    // estimate how many bytes into file fromNo is
+  File eventMemory = SD.open(eventMemoryFile, FILE_READ);
   bool failed = false;
   if (eventMemory.size() > filePos + 10){
     eventMemory.seek(filePos);
@@ -1057,7 +1062,7 @@ void outputCollectionBuffer(uint32_t timeOccurred){
     
     //Open the file for append
     File appendFile = SD.open(fileLocation, FILE_APPEND);
-    writeTipMemory(appendFile.size());
+    unsigned long fileSize = appendFile.size();
 
     //Add the contents of the buffer (with a new line at the end)
     appendFile.print(writeBuffer);
@@ -1071,6 +1076,7 @@ void outputCollectionBuffer(uint32_t timeOccurred){
     writeBufferIndex = 0;
     eventNumber = eventNumber + 1;
     configureTipFile();
+    writeTipMemory(fileSize);
   }else{
     if (!filesWorking){
       Serial.write("File System Has Failed (Attempting to write line)\n");
@@ -1336,6 +1342,7 @@ void handleCommandInput(char msgParts[3][33]){
           //Reset counters and file
           resetTipCounters();
           clearHourTips();
+          resetTipMemoryFile();
           //Reset the event index and the collection buffer
           eventNumber = 1;
           configureTipFile();
