@@ -656,7 +656,7 @@ void arduinoMessageReceived(){
       }
     }
     Serial.write("\n");
-  }*/
+  }
   for (int part = 0; part < partMax; part = part + 1){
     //If the part is not blank
     if (currentMessage[part] != ""){
@@ -666,6 +666,7 @@ void arduinoMessageReceived(){
     }
   }
   Serial.write("\n");
+  */
   //If needing to reset - for the start sequence
   if (resettingArduino){
     Serial.write("Testing Reset\n");
