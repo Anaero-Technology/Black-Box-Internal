@@ -888,7 +888,7 @@ void outputCollectionBuffer(uint32_t timeOccurred){
 
     //Char array to store the whole message
     char writeBuffer[messageLength + 80];
-    int writeBufferIndex = 0;
+    writeBuffer[0] = '\0';
     
     //Get the time and convert to cstring
     uint32_t timeSince = timeOccurred;
@@ -934,7 +934,6 @@ void outputCollectionBuffer(uint32_t timeOccurred){
     strcat(writeBuffer, " ");
     strcat(writeBuffer, collectionBuffer);
 
-
     char channel[4];
     int channelPos = 0;
     bool done = false;
@@ -967,8 +966,6 @@ void outputCollectionBuffer(uint32_t timeOccurred){
     Serial.write("tip ");
     Serial.write(writeBuffer);
     Serial.write("\n");
-    writeBuffer[0] = '\0';
-    writeBufferIndex = 0;
     eventNumber = eventNumber + 1;
     configureTipFile();
     writeTipMemory(fileSize);
