@@ -342,7 +342,8 @@ void configureTime(){
 void getTimeStamp(){
   /*Send the timestamp over the serial connection*/
   //Char buffer to hold timestamp
-  char timeStamp[20];
+  char timeStamp[25];
+  timeStamp[0] = '\0';
   //Get the current time
   DateTime timeNow = rtc.now();
   //Store each of the time parts (largest to smallest) in array of integers
@@ -356,37 +357,18 @@ void getTimeStamp(){
 
   //Buffer to hold current number
   char buff[5];
-  int timePos = 0;
 
   //Iterate through each part
   for (int part = 0; part < 6; part = part + 1){
     //Convert to a c string
     itoa(timeParts[part], buff, 10);
-    bool done = false;
-    //Iterate through characters
-    for (int ch = 0; ch < 5 and not done; ch = ch + 1){
-      //If the end
-      if (buff[ch] == '\0'){
-        done = true;
-      }else{
-        //If still within the buffer
-        if (timePos < 19){
-          //Add character to the buffer
-          timeStamp[timePos] = buff[ch];
-          timePos = timePos + 1;
-        }
-      }
-    }
+    strcat(timeStamp, buff);
 
     //Add a space if there are still more values to add
-    if (part != 5 && timePos < 19){
-      timeStamp[timePos] = ' ';
-      timePos = timePos + 1;
+    if (part != 5){
+      strcat(timeStamp, " ");
     }
   }
-
-  //Add terminator character
-  timeStamp[timePos] = '\0';
   //Write message to serial
   Serial.write("time ");
   Serial.write(timeStamp);
@@ -905,7 +887,7 @@ void outputCollectionBuffer(uint32_t timeOccurred){
     }
 
     //Char array to store the whole message
-    char writeBuffer[messageLength + 41];
+    char writeBuffer[messageLength + 80];
     int writeBufferIndex = 0;
     
     //Get the time and convert to cstring
@@ -916,7 +898,7 @@ void outputCollectionBuffer(uint32_t timeOccurred){
     char indexBuffer[11];
     itoa(eventNumber, indexBuffer, 10);
 
-    char timeStampBuffer[19];
+    char timeStampBuffer[25];
     DateTime timeNow = rtc.now();
     //If the time does not match current time - use the time occured (means that tips that are restored from updates do not have incorrect timestamp)
     if (timeOccurred != getSecondsSince() - experimentStartTime){
@@ -930,96 +912,32 @@ void outputCollectionBuffer(uint32_t timeOccurred){
     timeParts[1] = timeNow.month();
     timeParts[0] = timeNow.year();
 
-    bool done = false;
-    //Iterate throug the characters in the event number
-    for (int cha = 0; cha < 11 && !done; cha = cha + 1){
-      char ch = indexBuffer[cha];
-      //If it isn't the end of the numebr and the message isn't too long
-      if (ch != '\0' and writeBufferIndex < messageLength + 40){
-        //Add the character and increase the position
-        writeBuffer[writeBufferIndex] = ch;
-        writeBufferIndex = writeBufferIndex + 1;
-      }else{
-        //Stop writing the number
-        done = true;
-        //Add a space and increment the index
-        writeBuffer[writeBufferIndex] = ' ';
-        writeBufferIndex = writeBufferIndex + 1;
-      }
-    }
-    
     char buff[5];
-    int timePos = 0;
-
     //Iterate through the different parts of the time
     for (int part = 0; part < 6; part = part + 1){
       //Convert to a c string in the buffer
       itoa(timeParts[part], buff, 10);
-      bool done = false;
-      //Iterate through characters in the buffer
-      for (int ch = 0; ch < 5 and not done; ch = ch + 1){
-        //If the end has been reached
-        if (buff[ch] == '\0'){
-          //Stop
-          done = true;
-        }else{
-          //If the end of the buffer has not been reached
-          if (timePos < 18){
-            //Add the character and increment the position
-            timeStampBuffer[timePos] = buff[ch];
-            timePos = timePos + 1;
-          }
-        }
-      }
+      strcat(timeStampBuffer, buff);
 
       //If this is not the last part and the buffer is not full
-      if (part != 5 and timePos < 18){
+      if (part != 5){
         //Add the delimeter between parts
-        timeStampBuffer[timePos] = '.';
-        timePos = timePos + 1;
+        strcat(timeStampBuffer, ".");
       }
     }
-    //Add terminator character to buffer
-    timeStampBuffer[timePos] = '\0';
 
-    done = false;
-    //Iterate through each character in the time stamp
-    for (int cha = 0; cha < 19 && !done; cha = cha + 1){
-      char ch = timeStampBuffer[cha];
-      //If this is not the end of the number and the message is not too long
-      if (ch != '\0' and writeBufferIndex < messageLength + 40){
-        //Add the character and increment the index
-        writeBuffer[writeBufferIndex] = ch;
-        writeBufferIndex = writeBufferIndex + 1;
-      }else{
-        //Stop writing the number
-        done = true;
-        //Add a space and increment the index
-        writeBuffer[writeBufferIndex] = ' ';
-        writeBufferIndex = writeBufferIndex + 1;
-      }
-    }
-    
-    done = false;
-    //Iterate through each character in the time
-    for (int cha = 0; cha < 11 && !done; cha = cha + 1){
-      char ch = timeBuffer[cha];
-      //If this is not the end of the number and the message is not too long
-      if (ch != '\0' and writeBufferIndex < messageLength + 40){
-        //Add the character and increment the index
-        writeBuffer[writeBufferIndex] = ch;
-        writeBufferIndex = writeBufferIndex + 1;
-      }else{
-        //Stop writing the number
-        done = true;
-        //Add a space and increment the index
-        writeBuffer[writeBufferIndex] = ' ';
-        writeBufferIndex = writeBufferIndex + 1;
-      }
-    }
+    strcat(writeBuffer, indexBuffer);
+    strcat(writeBuffer, " ");
+    strcat(writeBuffer, timeStampBuffer);
+    strcat(writeBuffer, " ");
+    strcat(writeBuffer, timeBuffer);
+    strcat(writeBuffer, " ");
+    strcat(writeBuffer, collectionBuffer);
+
+
     char channel[4];
     int channelPos = 0;
-    done = false;
+    bool done = false;
     for (int cha = 0; cha < messageLength && !done; cha = cha + 1){
       char c = collectionBuffer[cha];
       if(c != ' '){
@@ -1035,30 +953,6 @@ void outputCollectionBuffer(uint32_t timeOccurred){
     int channelNumber = atoi(channel);
     if(channelNumber > 0 && channelNumber < 16){
       tipCounts[channelNumber - 1] = tipCounts[channelNumber - 1] + 1;
-    }
-    
-    done = false;
-    //Iterate through the characters in the message
-    for (int cha = 0; cha < messageLength && !done; cha = cha + 1){
-      char ch = collectionBuffer[cha];
-      //If this is not the end of the message and it is not too long
-      if (ch != '\0' and writeBufferIndex < messageLength + 40){
-        //Add the character and increment the index
-        writeBuffer[writeBufferIndex] = ch;
-        writeBufferIndex = writeBufferIndex + 1;
-      }else{
-        //Stop writing the message
-        done = true;
-      }
-    }
-
-    //If the index is less than or at the end of the message
-    if (writeBufferIndex < messageLength + 41){
-      //Add a null at the end of the message
-      writeBuffer[writeBufferIndex] = '\0';
-    }else{
-      //Add a null at the very last index - prevents extra data being read
-      writeBuffer[messageLength + 40] = '\0';
     }
     
     //Open the file for append
