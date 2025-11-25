@@ -342,7 +342,7 @@ void configureTime(){
 void getTimeStamp(){
   /*Send the timestamp over the serial connection*/
   //Char buffer to hold timestamp
-  char timeStamp[19];
+  char timeStamp[20];
   //Get the current time
   DateTime timeNow = rtc.now();
   //Store each of the time parts (largest to smallest) in array of integers
@@ -370,7 +370,7 @@ void getTimeStamp(){
         done = true;
       }else{
         //If still within the buffer
-        if (timePos < 18){
+        if (timePos < 19){
           //Add character to the buffer
           timeStamp[timePos] = buff[ch];
           timePos = timePos + 1;
@@ -379,7 +379,7 @@ void getTimeStamp(){
     }
 
     //Add a space if there are still more values to add
-    if (part != 5 and timePos < 18){
+    if (part != 5 && timePos < 19){
       timeStamp[timePos] = ' ';
       timePos = timePos + 1;
     }
