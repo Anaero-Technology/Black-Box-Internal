@@ -12,6 +12,17 @@ info [logging_state] [logging_file] [device_name] black-box [mac_address]\n
 ```
 Logging_state will be either 0 or 1, if it is 0 logging _file will be 'none'
 
+#### Type
+Used to identify the black box and distinguish it from other Anaero API devices
+Send:
+```
+type\n
+```
+Receive:
+```
+type black-box\n
+```
+
 #### Start
 Used to begin logging and storing information
 Send:
@@ -115,10 +126,10 @@ failed download nofile\n
 ```
 
 #### Downlaod From
-Used to download a file from the sd card from a certain byte onwards
+Used to download a file from the sd card from a certain event number onwards
 Send:
 ```
-downloadFrom [file_name] [byte_from]\n
+downloadFrom [file_name] [event_number]\n
 ```
 Response and sequence is identical to [download](#download)
 

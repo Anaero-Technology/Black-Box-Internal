@@ -78,6 +78,7 @@ const uint32_t hourLength = 60ul * 60ul * 1000ul;
 const uint32_t ULONGMAX = 0UL - 1UL;
 uint32_t hourStarted = 0ul;
 const char hourlyTipFile[16] = "/hourlyTips.txt";
+const char eventMemoryFile[17] = "/eventMemory.txt";
 
 //Unique hardware address from lan
 char macAddress[20] = {};
@@ -151,6 +152,7 @@ void setup()
               configureTipFile();
             }
           }else{
+            Serial.println("Could not find tip count file"); 
             eventNumber = 1;
             configureTipFile();
           }
@@ -341,7 +343,8 @@ void configureTime(){
 void getTimeStamp(){
   /*Send the timestamp over the serial connection*/
   //Char buffer to hold timestamp
-  char timeStamp[19];
+  char timeStamp[25];
+  timeStamp[0] = '\0';
   //Get the current time
   DateTime timeNow = rtc.now();
   //Store each of the time parts (largest to smallest) in array of integers
@@ -355,37 +358,18 @@ void getTimeStamp(){
 
   //Buffer to hold current number
   char buff[5];
-  int timePos = 0;
 
   //Iterate through each part
   for (int part = 0; part < 6; part = part + 1){
     //Convert to a c string
     itoa(timeParts[part], buff, 10);
-    bool done = false;
-    //Iterate through characters
-    for (int ch = 0; ch < 5 and not done; ch = ch + 1){
-      //If the end
-      if (buff[ch] == '\0'){
-        done = true;
-      }else{
-        //If still within the buffer
-        if (timePos < 18){
-          //Add character to the buffer
-          timeStamp[timePos] = buff[ch];
-          timePos = timePos + 1;
-        }
-      }
-    }
+    strcat(timeStamp, buff);
 
     //Add a space if there are still more values to add
-    if (part != 5 and timePos < 18){
-      timeStamp[timePos] = ' ';
-      timePos = timePos + 1;
+    if (part != 5){
+      strcat(timeStamp, " ");
     }
   }
-
-  //Add terminator character
-  timeStamp[timePos] = '\0';
   //Write message to serial
   Serial.write("time ");
   Serial.write(timeStamp);
@@ -492,6 +476,66 @@ bool fileNameSet(char fileName[33]){
   }
 }
 
+void resetTipMemoryFile() {
+  File eventMemory = SD.open(eventMemoryFile, FILE_WRITE);
+  eventMemory.close();
+}
+
+void writeTipMemory(unsigned long location) {
+  char locationBuffer[11];
+  ultoa(location, locationBuffer, 10);
+  int sizeLength = strlen(locationBuffer);
+  if (!SD.exists(eventMemoryFile)) {
+    resetTipMemoryFile();
+  }
+  File eventMemory = SD.open(eventMemoryFile, FILE_APPEND);
+  for (int i = 0; i < 10 - sizeLength; i = i + 1){
+    eventMemory.print("0"); 
+  }
+  eventMemory.print(locationBuffer);
+  eventMemory.print('\n');
+  eventMemory.close();
+}
+
+unsigned long getTipMemoryLocation(unsigned long eventNumber) {
+  unsigned long location = 0UL;
+  unsigned long filePos = (eventNumber - 1) * 11;                                    // estimate how many bytes into file fromNo is
+  File eventMemory = SD.open(eventMemoryFile, FILE_READ);
+  bool failed = false;
+  if (eventMemory.size() > filePos + 10){
+    eventMemory.seek(filePos);
+    char posChars[11];
+    for (int i = 0; i < 10; i = i + 1){
+      if (eventMemory.available()){
+        posChars[i] = eventMemory.read();
+      }else{
+        failed = true;
+      }
+    }
+    posChars[10] = '\0';
+
+    if (!failed){
+      unsigned long placeValue = 1;
+      for (int i = 9; i > -1; i = i - 1){
+        int value = posChars[i] - '0';
+        if (value > -1 && value < 10){
+          location = location + (value * placeValue);
+          placeValue = placeValue * 10;
+        }else{
+          failed = true;
+        }
+      }
+    }
+
+    if (failed){
+      location = 0;
+    }
+  }
+
+  eventMemory.close();
+  return location;
+}
+
 void readArduinoInput(){
   /*Read characters from the arduino and store them in a buffer*/
   //Repeat until there are no more characters - prioritises the arduino (may need to change to if)
@@ -595,8 +639,17 @@ void arduinoMessageReceived(){
       }
     }
     Serial.write("\n");
-  }*/
-
+  }
+  for (int part = 0; part < partMax; part = part + 1){
+    //If the part is not blank
+    if (currentMessage[part] != ""){
+      //Write the part to the file followed by a space
+      Serial.write(currentMessage[part]);
+      Serial.write(" ");
+    }
+  }
+  Serial.write("\n");
+  */
   //If needing to reset - for the start sequence
   if (resettingArduino){
     Serial.write("Testing Reset\n");
@@ -835,8 +888,8 @@ void outputCollectionBuffer(uint32_t timeOccurred){
     }
 
     //Char array to store the whole message
-    char writeBuffer[messageLength + 41];
-    int writeBufferIndex = 0;
+    char writeBuffer[messageLength + 80];
+    writeBuffer[0] = '\0';
     
     //Get the time and convert to cstring
     uint32_t timeSince = timeOccurred;
@@ -846,7 +899,7 @@ void outputCollectionBuffer(uint32_t timeOccurred){
     char indexBuffer[11];
     itoa(eventNumber, indexBuffer, 10);
 
-    char timeStampBuffer[19];
+    char timeStampBuffer[25];
     DateTime timeNow = rtc.now();
     //If the time does not match current time - use the time occured (means that tips that are restored from updates do not have incorrect timestamp)
     if (timeOccurred != getSecondsSince() - experimentStartTime){
@@ -860,96 +913,31 @@ void outputCollectionBuffer(uint32_t timeOccurred){
     timeParts[1] = timeNow.month();
     timeParts[0] = timeNow.year();
 
-    bool done = false;
-    //Iterate throug the characters in the event number
-    for (int cha = 0; cha < 11 && !done; cha = cha + 1){
-      char ch = indexBuffer[cha];
-      //If it isn't the end of the numebr and the message isn't too long
-      if (ch != '\0' and writeBufferIndex < messageLength + 40){
-        //Add the character and increase the position
-        writeBuffer[writeBufferIndex] = ch;
-        writeBufferIndex = writeBufferIndex + 1;
-      }else{
-        //Stop writing the number
-        done = true;
-        //Add a space and increment the index
-        writeBuffer[writeBufferIndex] = ' ';
-        writeBufferIndex = writeBufferIndex + 1;
-      }
-    }
-    
     char buff[5];
-    int timePos = 0;
-
     //Iterate through the different parts of the time
     for (int part = 0; part < 6; part = part + 1){
       //Convert to a c string in the buffer
       itoa(timeParts[part], buff, 10);
-      bool done = false;
-      //Iterate through characters in the buffer
-      for (int ch = 0; ch < 5 and not done; ch = ch + 1){
-        //If the end has been reached
-        if (buff[ch] == '\0'){
-          //Stop
-          done = true;
-        }else{
-          //If the end of the buffer has not been reached
-          if (timePos < 18){
-            //Add the character and increment the position
-            timeStampBuffer[timePos] = buff[ch];
-            timePos = timePos + 1;
-          }
-        }
-      }
+      strcat(timeStampBuffer, buff);
 
       //If this is not the last part and the buffer is not full
-      if (part != 5 and timePos < 18){
+      if (part != 5){
         //Add the delimeter between parts
-        timeStampBuffer[timePos] = '.';
-        timePos = timePos + 1;
+        strcat(timeStampBuffer, ".");
       }
     }
-    //Add terminator character to buffer
-    timeStampBuffer[timePos] = '\0';
 
-    done = false;
-    //Iterate through each character in the time stamp
-    for (int cha = 0; cha < 19 && !done; cha = cha + 1){
-      char ch = timeStampBuffer[cha];
-      //If this is not the end of the number and the message is not too long
-      if (ch != '\0' and writeBufferIndex < messageLength + 40){
-        //Add the character and increment the index
-        writeBuffer[writeBufferIndex] = ch;
-        writeBufferIndex = writeBufferIndex + 1;
-      }else{
-        //Stop writing the number
-        done = true;
-        //Add a space and increment the index
-        writeBuffer[writeBufferIndex] = ' ';
-        writeBufferIndex = writeBufferIndex + 1;
-      }
-    }
-    
-    done = false;
-    //Iterate through each character in the time
-    for (int cha = 0; cha < 11 && !done; cha = cha + 1){
-      char ch = timeBuffer[cha];
-      //If this is not the end of the number and the message is not too long
-      if (ch != '\0' and writeBufferIndex < messageLength + 40){
-        //Add the character and increment the index
-        writeBuffer[writeBufferIndex] = ch;
-        writeBufferIndex = writeBufferIndex + 1;
-      }else{
-        //Stop writing the number
-        done = true;
-        //Add a space and increment the index
-        writeBuffer[writeBufferIndex] = ' ';
-        writeBufferIndex = writeBufferIndex + 1;
-      }
-    }
+    strcat(writeBuffer, indexBuffer);
+    strcat(writeBuffer, " ");
+    strcat(writeBuffer, timeStampBuffer);
+    strcat(writeBuffer, " ");
+    strcat(writeBuffer, timeBuffer);
+    strcat(writeBuffer, " ");
+    strcat(writeBuffer, collectionBuffer);
+
     char channel[4];
     int channelPos = 0;
-    done = false;
+    bool done = false;
     for (int cha = 0; cha < messageLength && !done; cha = cha + 1){
       char c = collectionBuffer[cha];
       if(c != ' '){
@@ -967,32 +955,10 @@ void outputCollectionBuffer(uint32_t timeOccurred){
       tipCounts[channelNumber - 1] = tipCounts[channelNumber - 1] + 1;
     }
     
-    done = false;
-    //Iterate through the characters in the message
-    for (int cha = 0; cha < messageLength && !done; cha = cha + 1){
-      char ch = collectionBuffer[cha];
-      //If this is not the end of the message and it is not too long
-      if (ch != '\0' and writeBufferIndex < messageLength + 40){
-        //Add the character and increment the index
-        writeBuffer[writeBufferIndex] = ch;
-        writeBufferIndex = writeBufferIndex + 1;
-      }else{
-        //Stop writing the message
-        done = true;
-      }
-    }
-
-    //If the index is less than or at the end of the message
-    if (writeBufferIndex < messageLength + 41){
-      //Add a null at the end of the message
-      writeBuffer[writeBufferIndex] = '\0';
-    }else{
-      //Add a null at the very last index - prevents extra data being read
-      writeBuffer[messageLength + 40] = '\0';
-    }
-    
     //Open the file for append
     File appendFile = SD.open(fileLocation, FILE_APPEND);
+    unsigned long fileSize = appendFile.size();
+
     //Add the contents of the buffer (with a new line at the end)
     appendFile.print(writeBuffer);
     appendFile.print("\n");
@@ -1001,10 +967,9 @@ void outputCollectionBuffer(uint32_t timeOccurred){
     Serial.write("tip ");
     Serial.write(writeBuffer);
     Serial.write("\n");
-    writeBuffer[0] = '\0';
-    writeBufferIndex = 0;
     eventNumber = eventNumber + 1;
     configureTipFile();
+    writeTipMemory(fileSize);
   }else{
     if (!filesWorking){
       Serial.write("File System Has Failed (Attempting to write line)\n");
@@ -1252,6 +1217,9 @@ void handleCommandInput(char msgParts[3][33]){
      //Send the information regarding the memory usage
      //getMemoryData();
   }
+  else if (strcmp(msgParts[0], "type")) {
+    Serial.write("type black-box\n");
+  }
   //If this is the command to start recieving data
   else if (strcmp(msgParts[0], "start") == 0){
     //If not currently running the experiment
@@ -1270,6 +1238,7 @@ void handleCommandInput(char msgParts[3][33]){
           //Reset counters and file
           resetTipCounters();
           clearHourTips();
+          resetTipMemoryFile();
           //Reset the event index and the collection buffer
           eventNumber = 1;
           configureTipFile();
@@ -1383,7 +1352,8 @@ void handleCommandInput(char msgParts[3][33]){
     }
 
     //Attempt to convert start position - 0 if failed
-    downloadStartPoint = strtoul(msgParts[2], NULL, 10);
+    unsigned long lineLocation = strtoul(msgParts[2], NULL, 10);
+    downloadStartPoint = getTipMemoryLocation(lineLocation);
 
     //If currently receiving data
     if (collecting){
