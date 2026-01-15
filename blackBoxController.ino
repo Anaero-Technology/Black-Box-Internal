@@ -152,6 +152,7 @@ void setup()
               configureTipFile();
             }
           }else{
+            Serial.println("Could not find tip count file"); 
             eventNumber = 1;
             configureTipFile();
           }
@@ -1215,6 +1216,9 @@ void handleCommandInput(char msgParts[3][33]){
      Serial.write("\n");
      //Send the information regarding the memory usage
      //getMemoryData();
+  }
+  else if (strcmp(msgParts[0], "type")) {
+    Serial.write("type black-box\n");
   }
   //If this is the command to start recieving data
   else if (strcmp(msgParts[0], "start") == 0){
