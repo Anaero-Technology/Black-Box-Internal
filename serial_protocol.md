@@ -12,6 +12,17 @@ info [logging_state] [logging_file] [device_name] black-box [mac_address]\n
 ```
 Logging_state will be either 0 or 1, if it is 0 logging _file will be 'none'
 
+#### Type
+Used to identify the black box and distinguish it from other Anaero API devices
+Send:
+```
+type\n
+```
+Receive:
+```
+type black-box\n
+```
+
 #### Start
 Used to begin logging and storing information
 Send:
