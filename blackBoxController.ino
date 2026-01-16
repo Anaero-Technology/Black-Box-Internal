@@ -340,6 +340,12 @@ void configureTime(){
   }
 }
 
+void getUnixTimeStamp(){
+  unsigned long unixTime = rtc.now().unixtime();
+  Serial.print("time ");
+  Serial.println(unixTime);
+}
+
 void getTimeStamp(){
   /*Send the timestamp over the serial connection*/
   //Char buffer to hold timestamp
@@ -376,9 +382,10 @@ void getTimeStamp(){
   Serial.write("\n");
 }
 
-void setTimeStamp(int y, int m, int d, int h, int mi, int s){
+void setTimeStamp(unsigned long seconds){
   /*Set the current time on the real time clock using Year, Month, Day, Hours, MInutes and Seconds*/
-  rtc.adjust(DateTime(y, m, d, h, mi, s));
+  rtc.adjust(DateTime(seconds));
+  //rtc.adjust(DateTime(y, m, d, h, mi, s));
 }
 
 uint32_t getSecondsSince(){
@@ -1368,65 +1375,17 @@ void handleCommandInput(char msgParts[3][33]){
 
   //If this is a request to get the RTC time
   else if (strcmp(msgParts[0], "getTime") == 0){
-    getTimeStamp();
+    getUnixTimeStamp();
   }
 
   //If this is a request to set the RTC Ttime
   else if (strcmp(msgParts[0], "setTime") == 0){
     //If not currently running an experiment
     if (!collecting){
-      //Buffer to store the values
-      char timeValues[6][5];
-      //Array to store the integer version of the values
-      int timeValuesInt[6];
-  
-      bool done = false;
-      int value = 0;
-      int index = 0;
-      //Iterate through the characters in the message
-      for (int cha = 0; cha < 33 or not done; cha = cha + 1){
-        //If the end has been reached
-        if (msgParts[1][cha] == '\0'){
-          done = true;
-        }else{
-          //If this is a separator
-          if (msgParts[1][cha] == ','){
-            //Add terminator to the value
-            timeValues[value][index] = '\0';
-            //Move on to next value if there is one
-            if (value < 5){
-              value = value + 1;
-              index = 0;
-            }else{
-              //If there is not a next value - finished
-              done = true;
-            }
-          }else{
-            //Add the character to the value
-            timeValues[value][index] = msgParts[1][cha];
-            //Move to next position
-            index = index + 1;
-            //Limit to prevent out of range
-            if (index > 4){
-              index = 4;
-            }
-          }
-        }
-      }
-
-      //Add terminator character to all following values
-      timeValues[value][index] = '\0';
-      for (int v = value + 1; v < 6; v = v + 1){
-        timeValues[v][0] = '\0';
-      }
-
-      //Iterate through and convert to integers
-      for (int i = 0; i < 6; i = i + 1){
-        timeValuesInt[i] = atoi(timeValues[i]);
-      }
-
-      //Set the time from the values
-      setTimeStamp(timeValuesInt[0], timeValuesInt[1], timeValuesInt[2], timeValuesInt[3], timeValuesInt[4], timeValuesInt[5]);
+      //Convert given value to unsigned long
+      unsigned long seconds = strtoul(msgParts[1], nullptr, 10);
+      //Set the time from the unix time stamp
+      setTimeStamp(seconds);
 
       //Send message to indicate successful time change
       Serial.write("done setTime\n");
