@@ -1224,7 +1224,7 @@ void handleCommandInput(char msgParts[3][33]){
      //Send the information regarding the memory usage
      //getMemoryData();
   }
-  else if (strcmp(msgParts[0], "type")) {
+  else if (strcmp(msgParts[0], "type") == 0) {
     Serial.write("type black-box\n");
   }
   //If this is the command to start recieving data
