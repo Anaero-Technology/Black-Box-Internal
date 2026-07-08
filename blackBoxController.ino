@@ -67,6 +67,11 @@ uint32_t arduinoTimeoutDuration = 6000ul;
 
 bool reRequesting = false;
 uint32_t arduinoLastEventNumber = -1;
+unsigned long lastGoodEspTime = 0UL;
+unsigned long lastGoodArduinoTime = 0UL;
+
+unsigned long lastRepeatEspTime = 0UL;
+unsigned long lastRepeatArduinoTime = 0UL;
 
 //Connection to real time clock
 RTC_DS3231 rtc;
@@ -744,7 +749,15 @@ void arduinoMessageReceived(){
       
       if (eventNumber != arduinoEventNumber){
         if (reRequesting){
-          eventNumber = arduinoEventNumber;
+            unsigned long arduinoDifference = arduinoEventTime - lastGoodArduinoTime;
+            if (arduinoEventTime < lastGoodArduinoTime) {
+                arduinoDifference = (ULONGMAX - lastGoodArduinoTime) + arduinoEventTime;
+            }
+            lastRepeatEspTime = eventTime;
+            eventTime = lastGoodEspTime + arduinoDifference;
+            eventNumber = arduinoEventNumber;
+
+            lastRepeatArduinoTime = eventTime;
         }else{
           if (eventNumber == -1 || arduinoEventNumber < eventNumber){
             eventNumber = arduinoEventNumber;
@@ -762,6 +775,9 @@ void arduinoMessageReceived(){
             reRequesting = true;
           }
         }
+      } else {
+        lastGoodArduinoTime = arduinoEventTime;
+        lastGoodEspTime = eventTime;
       }
 
       if (!askingAgain){
@@ -849,6 +865,8 @@ void arduinoMessageReceived(){
 
   if (reRequesting && ((strcmp(currentMessage[0], "DONE") == 0) || (eventNumber > arduinoLastEventNumber && arduinoLastEventNumber > 0))){
     reRequesting = false;
+    lastGoodArduinoTime = lastRepeatArduinoTime;
+    lastGoodEspTime = lastRepeatEspTime;
     Serial.write("Stopped re-requesting\n");
   }
 
