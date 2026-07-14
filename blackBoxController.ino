@@ -706,6 +706,13 @@ void arduinoMessageReceived(){
     Serial2.write("PAUSE_DATA\n");
     awaitingPause = false;
   }
+
+  if (lastGoodArduinoTime == 0 && strcmp(currentMessage[1], "PING") == 0) {
+    uint32_t eventTime = getSecondsSince() - experimentStartTime;
+    uint32_t arduinoEventTime = strtol(currentMessage[2], NULL, 10);
+    lastGoodArduinoTime = arduinoEventTime;
+    lastGoodEspTime = eventTime;
+  }
   
   //If it is a data item and not waiting to reset
   if (!resettingArduino && !waitingForReRequest && strcmp(currentMessage[1], "DATA") == 0){ 
@@ -758,7 +765,6 @@ void arduinoMessageReceived(){
       bool askingAgain = false;
       
       if (reRequesting){
-          //All rerequested tips have the same time???
           unsigned long arduinoDifference = arduinoEventTime - lastGoodArduinoTime;
           if (arduinoEventTime < lastGoodArduinoTime) {
             arduinoDifference = (ULONGMAX - lastGoodArduinoTime) + arduinoEventTime;
@@ -767,7 +773,7 @@ void arduinoMessageReceived(){
           eventTime = lastGoodEspTime + arduinoDifference;
           eventNumber = arduinoEventNumber;
 
-          lastRepeatArduinoTime = eventTime;
+          lastRepeatArduinoTime = arduinoEventTime;
       } else {
 
         if (eventNumber != arduinoEventNumber){
@@ -814,7 +820,6 @@ void arduinoMessageReceived(){
     //Reset the download setup
     awaitingDownload = false;
     awaitingHourly = false;
-    awaitingPause = true;
     fileToDownload[0] = '\0';
     //Resume the arduino
     awaitingResume = true;
