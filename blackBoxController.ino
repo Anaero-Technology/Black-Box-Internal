@@ -1294,6 +1294,10 @@ void handleCommandInput(char msgParts[3][33]){
           arduinoContactTime = millis();
           sentClear = false;
           awaitingResume = false;
+          lastGoodEspTime = 0UL;
+          lastGoodArduinoTime = 0UL;
+          lastRepeatEspTime = 0UL;
+          lastRepeatArduinoTime = 0UL;
           //Flag set to start collecting arduino data
           collecting = true;
           Serial.write("Start working - awaiting reset\n");
