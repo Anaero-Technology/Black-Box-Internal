@@ -51,6 +51,7 @@ bool resettingArduino = false;
 bool sentClear = false;
 
 bool awaitingDownload = false;
+bool awaitingPause = false;
 bool awaitingHourly = false;
 int downloadTimeout = 5;
 bool awaitingResume = false;
@@ -66,6 +67,8 @@ uint32_t arduinoContactTime = 0;
 uint32_t arduinoTimeoutDuration = 6000ul;
 
 bool reRequesting = false;
+bool waitingForReRequest = false;
+uint32_t reRequestingFrom = 0;
 uint32_t arduinoLastEventNumber = -1;
 unsigned long lastGoodEspTime = 0UL;
 unsigned long lastGoodArduinoTime = 0UL;
@@ -642,7 +645,9 @@ void arduinoMessageReceived(){
   /*When a complete message has been recieved handle it correctly*/
   //Debug output via serial - so that it can be logged
   /*if (strcmp(currentMessage[1], "PING") != 0){
+    Serial.write("A: ");
     for (int part = 0; part < partMax; part = part + 1){
+      
       //If the part is not blank
       if (currentMessage[part] != ""){
         //Write the part to the file followed by a space
@@ -651,17 +656,7 @@ void arduinoMessageReceived(){
       }
     }
     Serial.write("\n");
-  }
-  for (int part = 0; part < partMax; part = part + 1){
-    //If the part is not blank
-    if (currentMessage[part] != ""){
-      //Write the part to the file followed by a space
-      Serial.write(currentMessage[part]);
-      Serial.write(" ");
-    }
-  }
-  Serial.write("\n");
-  */
+  }*/
   //If needing to reset - for the start sequence
   if (resettingArduino){
     Serial.write("Testing Reset\n");
@@ -696,9 +691,24 @@ void arduinoMessageReceived(){
       Serial2.write("LOGGING_ON\n");
     }
   }
+
+  if (waitingForReRequest && strcmp(currentMessage[1], "PING") == 0) {
+    Serial2.write("DUMP_DATA_FROM ");
+    Serial2.print(reRequestingFrom);
+    Serial2.write("\n");
+    Serial.write("Re-Requesting tips from ");
+    Serial.print(reRequestingFrom);
+    Serial.write("\n");
+    waitingForReRequest = false;
+  }
+
+  if (awaitingPause && strcmp(currentMessage[1], "PING") == 0) {
+    Serial2.write("PAUSE_DATA\n");
+    awaitingPause = false;
+  }
   
   //If it is a data item and not waiting to reset
-  if (!resettingArduino && strcmp(currentMessage[1], "DATA") == 0){ 
+  if (!resettingArduino && !waitingForReRequest && strcmp(currentMessage[1], "DATA") == 0){ 
     //Flags to indicate if anthing was added and if anything has been added since the last part
     bool addedAnything = false;
     bool addedSince = false;
@@ -742,42 +752,43 @@ void arduinoMessageReceived(){
       uint32_t arduinoEventNumber = strtol(currentMessage[2], NULL, 10);
       uint32_t arduinoEventTime = strtol(currentMessage[3], NULL, 10);
       if (reRequesting){
-        eventTime = arduinoEventTime;
+        //eventTime = arduinoEventTime;
       }
 
       bool askingAgain = false;
       
-      if (eventNumber != arduinoEventNumber){
-        if (reRequesting){
-            unsigned long arduinoDifference = arduinoEventTime - lastGoodArduinoTime;
-            if (arduinoEventTime < lastGoodArduinoTime) {
-                arduinoDifference = (ULONGMAX - lastGoodArduinoTime) + arduinoEventTime;
-            }
-            lastRepeatEspTime = eventTime;
-            eventTime = lastGoodEspTime + arduinoDifference;
-            eventNumber = arduinoEventNumber;
+      if (reRequesting){
+          //All rerequested tips have the same time???
+          unsigned long arduinoDifference = arduinoEventTime - lastGoodArduinoTime;
+          if (arduinoEventTime < lastGoodArduinoTime) {
+            arduinoDifference = (ULONGMAX - lastGoodArduinoTime) + arduinoEventTime;
+          }
+          lastRepeatEspTime = eventTime;
+          eventTime = lastGoodEspTime + arduinoDifference;
+          eventNumber = arduinoEventNumber;
 
-            lastRepeatArduinoTime = eventTime;
-        }else{
+          lastRepeatArduinoTime = eventTime;
+      } else {
+
+        if (eventNumber != arduinoEventNumber){
           if (eventNumber == -1 || arduinoEventNumber < eventNumber){
             eventNumber = arduinoEventNumber;
           }else{
             //Store the end point
             arduinoLastEventNumber = arduinoEventNumber;
             //Request data dump from previous tip (give last one recieved)
-            Serial2.write("DUMP_DATA_FROM ");
-            Serial2.print(eventNumber);
-            Serial2.write("\n");
-            Serial.write("Re-Requesting tips from ");
-            Serial.print(eventNumber);
-            Serial.write("\n");
-            askingAgain = true;
             reRequesting = true;
+            waitingForReRequest = true;
+            reRequestingFrom = eventNumber;
+            askingAgain = true;
+            //Reset the buffer position
+            collectionBuffer[0] = '\0';
+            collectionBufferPosition = 0;
           }
+        }else {
+          lastGoodArduinoTime = arduinoEventTime;
+          lastGoodEspTime = eventTime;
         }
-      } else {
-        lastGoodArduinoTime = arduinoEventTime;
-        lastGoodEspTime = eventTime;
       }
 
       if (!askingAgain){
@@ -803,6 +814,7 @@ void arduinoMessageReceived(){
     //Reset the download setup
     awaitingDownload = false;
     awaitingHourly = false;
+    awaitingPause = true;
     fileToDownload[0] = '\0';
     //Resume the arduino
     awaitingResume = true;
@@ -943,7 +955,11 @@ void outputCollectionBuffer(uint32_t timeOccurred){
     for (int part = 0; part < 6; part = part + 1){
       //Convert to a c string in the buffer
       itoa(timeParts[part], buff, 10);
-      strcat(timeStampBuffer, buff);
+      if (part == 0) {
+        strcpy(timeStampBuffer, buff);
+      } else {
+        strcat(timeStampBuffer, buff);
+      }
 
       //If this is not the last part and the buffer is not full
       if (part != 5){
@@ -1356,7 +1372,7 @@ void handleCommandInput(char msgParts[3][33]){
     if (collecting){
       //Perform a pause first
       awaitingDownload = true;
-      Serial2.write("PAUSE_DATA\n");
+      awaitingPause = true;
     }else{
       //Start the file download
       downloadFile();
@@ -1384,7 +1400,7 @@ void handleCommandInput(char msgParts[3][33]){
     if (collecting){
       //Perform a pause first
       awaitingDownload = true;
-      Serial2.write("PAUSE_DATA\n");
+      awaitingPause = true;
     }else{
       //Start the file download
       downloadFile();
@@ -1438,7 +1454,7 @@ void handleCommandInput(char msgParts[3][33]){
       if (collecting){
         //Perform a pause first
         awaitingHourly = true;
-        Serial2.write("PAUSE_DATA\n");
+        awaitingPause = true;
       }else{
         //Start the file download
         sendHourTips();
