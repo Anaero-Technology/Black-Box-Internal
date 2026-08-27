@@ -5,8 +5,9 @@
 //WiFi code removed in this version
 //Adjustments to UPDATE handling to fix issues with redownload, changed timing calculcations to correctly show times
 //Added reporting of all tips for dynamic viewing, also uses UPDATE to ensure no data is lost
+//Improved handling of missed tips to prevent data loss
 //  
-//Written By Robbie Goldman, Last updated 1/11/2022
+//Written By Robbie Goldman, Last updated 13/8/2026
 
 #include <FS.h>
 #include <SD.h>
